@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIFTY OI Dashboard — 3m Entry + 15m Trend</title>
+<style>
+:root{--bg:#0b1220;--panel:#121d30;--panel2:#17243a;--text:#eaf1fb;--muted:#9fb0c8;--line:#293a54;--green:#27c281;--red:#ff6377;--yellow:#f5c451;--blue:#72a7ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header,main{max-width:1280px;margin:auto}header{padding:20px 16px 12px}main{padding:0 16px 28px}h1{font-size:clamp(22px,4vw,32px);margin:0 0 6px}h2{font-size:16px;margin:0 0 10px}p{color:var(--muted);margin:6px 0}
+.notice{background:#332b16;border:1px solid #6b5723;color:#ffe5a1;border-radius:12px;padding:12px 14px;margin:12px 0 16px;line-height:1.45}
+.controls,.cards,.charts,.signalgrid{display:grid;gap:12px}.controls{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));background:var(--panel);padding:14px;border-radius:14px;border:1px solid var(--line)}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}input,select,button{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:inherit}button{background:#2458a6;border-color:#3876cf;font-weight:650;cursor:pointer}button.secondary{background:var(--panel2);border-color:var(--line)}
+.cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:12px 0}.card,.chartbox,.tablebox,.signalbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.label{font-size:12px;color:var(--muted)}.big{font-size:23px;font-weight:750;margin-top:7px}.green{color:var(--green)}.red{color:var(--red)}.yellow{color:var(--yellow)}
+.signalgrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));margin:12px 0}.signalbox{border-width:2px}.signalhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.signalname{font-size:clamp(25px,5vw,38px);font-weight:850;margin:7px 0}.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:750;background:#26344a}.pill.wait{color:var(--yellow)}.pill.call{color:var(--green)}.pill.put{color:var(--red)}
+.charts{grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));margin:12px 0}.chartbox canvas{width:100%;height:250px;display:block}.charthead{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}.charthead select{width:auto;min-width:125px;padding:6px}
+.small{font-size:12px;color:var(--muted);line-height:1.5}.status{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:right;padding:9px 6px;border-bottom:1px solid var(--line);white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600}
+@media(max-width:520px){header{padding-top:16px}.big{font-size:20px}.card,.chartbox,.tablebox,.signalbox{padding:11px}th,td{padding:7px 4px;font-size:12px}}
+</style></head>
+<body>
+<header><h1>NIFTY 50 — OI + CALL/PUT Dashboard</h1><p>3-minute entry preview · 15-minute trend confirmation · Custom strike range</p></header>
+<main>
+<div class="notice"><strong>DEMO MODE — कृपया ट्रेड न करें:</strong> यह फ़ाइल अभी वास्तविक NIFTY, Option Chain, VWAP या Volume feed से कनेक्ट नहीं है। स्क्रीन पर दिखने वाले OI, प्राइस और सिग्नल सिम्युलेटेड उदाहरण हैं। Live उपयोग से पहले अधिकृत डेटा API जोड़ना और रणनीति का बैकटेस्ट करना जरूरी है।</div>
+<section class="controls">
+<div><label for="start">Strike range — शुरुआत</label><input id="start" type="number" value="22800" step="50"></div>
+<div><label for="end">Strike range — अंत</label><input id="end" type="number" value="23200" step="50"></div>
+<div><label for="expiry">Expiry (demo)</label><select id="expiry"><option>Nearest expiry (demo)</option><option>Next expiry (demo)</option></select></div>
+<div><label for="refresh">Demo refresh</label><select id="refresh"><option value="30">30 seconds</option><option value="15">15 seconds</option><option value="60">60 seconds</option></select></div>
+<div><label for="baseline">OI comparison</label><select id="baseline"><option value="prev">Change vs previous sample</option><option value="session">Demo session change</option></select></div>
+<div style="display:flex;align-items:end;gap:8px"><button id="apply">Apply range</button><button id="pause" class="secondary">Pause demo</button></div>
+</section>
+<section class="cards">
+<div class="card"><div class="label">Range Total Call OI (demo)</div><div class="big red" id="callOI">—</div></div>
+<div class="card"><div class="label">Range Total Put OI (demo)</div><div class="big green" id="putOI">—</div></div>
+<div class="card"><div class="label">Call ΔOI (demo)</div><div class="big red" id="callChg">—</div></div>
+<div class="card"><div class="label">Put ΔOI (demo)</div><div class="big green" id="putChg">—</div></div>
+<div class="card"><div class="label">Put ΔOI / Call ΔOI</div><div class="big" id="ratio">—</div><div class="small">गणितीय अनुपात; अकेले ट्रेडिंग सिग्नल नहीं</div></div>
+<div class="card"><div class="label">Demo NIFTY price</div><div class="big" id="price">—</div><div class="small">Simulated only</div></div>
+</section>
+<section class="signalgrid">
+<div class="signalbox" id="signalbox">
+<div class="signalhead"><span class="label">3-minute entry + 15-minute confirmation</span><span id="trendPill" class="pill wait">15m TREND: WAIT</span></div>
+<div class="signalname yellow" id="signal">WAIT</div>
+<div id="signalWhy" class="small">Live inputs not connected; demo rule preview only.</div>
+</div>
+<div class="signalbox">
+<h2>Entry plan preview (not live)</h2>
+<div class="small">Reference price: <b id="refPrice">—</b></div>
+<div class="small">Illustrative stop level: <b id="stop">—</b></div>
+<div class="small">Illustrative target level: <b id="target">—</b></div>
+<p class="small">ये स्तर सिम्युलेटेड प्राइस से निकले उदाहरण हैं, ट्रेडिंग के लिए उपयोग न करें। Live version में असली candles/ATR या swing levels से levels तय होंगे।</p>
+</div>
+</section>
+<section class="charts">
+<div class="chartbox"><div class="charthead"><h2>1. Call ΔOI vs Put ΔOI</h2><select id="view1"><option value="change">Change in OI</option><option value="total">Total OI</option></select></div><canvas id="chart1"></canvas><div class="small">समय के साथ दोनों लाइनें।</div></div>
+<div class="chartbox"><div class="charthead"><h2>2. Put ΔOI / Call ΔOI Ratio</h2><select id="view2"><option value="ratio">Ratio</option><option value="difference">Put ΔOI − Call ΔOI</option></select></div><canvas id="chart2"></canvas><div class="small">Call ΔOI शून्य होने पर ratio N/A; negative values की सावधानी से व्याख्या करें।</div></div>
+<div class="chartbox"><div class="charthead"><h2>3. Total Call OI vs Total Put OI</h2><select id="view3"><option value="total">Total OI</option><option value="change">Change in OI</option></select></div><canvas id="chart3"></canvas><div class="small">Total OI और Change in OI अलग मेट्रिक्स हैं।</div></div>
+<div class="chartbox"><h2>Strike-wise snapshot (demo)</h2><div style="overflow-x:auto"><table><thead><tr><th>Strike</th><th>Call OI</th><th>Put OI</th><th>Call ΔOI</th><th>Put ΔOI</th><th>Put−Call</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+</section>
+<div class="status small"><span id="lastUpdate">Demo updated: —</span><span id="countdown">Next demo update in 30s</span></div>
+<p class="small">Live build requires an authorised data feed/backend for timestamped option-chain OI, NIFTY candles, volume and VWAP. Do not place API tokens in this HTML or share them in chat.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);let timer=null,interval=30,paused=false,seconds=30,strikes=[],history=[],prevTotals=null,simPrice=23000;
+function nf(n){return Math.round(n).toLocaleString("en-IN")}function fmt(n){return(n>=0?"+":"")+nf(n)}
+function makeStrikes(){let a=Number($("start").value),b=Number($("end").value);if(!Number.isFinite(a)||!Number.isFinite(b)||a>b){alert("कृपया सही Strike Range डालें।");return false}strikes=[];for(let x=Math.ceil(a/50)*50;x<=b;x+=50)strikes.push(x);if(!strikes.length){alert("इस रेंज में 50-point strikes नहीं मिलीं।");return false}return true}
+function snapshot(){return strikes.map((s,i)=>({strike:s,callOI:Math.round(90000+i*16000+Math.random()*5000),putOI:Math.round(95000+(strikes.length-i)*15000+Math.random()*5000),callD:Math.round((Math.random()-.49)*5500),putD:Math.round((Math.random()-.45)*6000)}))}
+function agg(rs){return rs.reduce((a,r)=>({callOI:a.callOI+r.callOI,putOI:a.putOI+r.putOI,callD:a.callD+r.callD,putD:a.putD+r.putD}),{callOI:0,putOI:0,callD:0,putD:0})}
+function tick(){
+ const rows=snapshot(),a=agg(rows),now=new Date();
+ // Simulated price/volume/VWAP/trend solely for demonstrating the UI.
+ simPrice+=((Math.random()-.49)*28);let vwap=23000+(Math.random()-.5)*12,volStrong=Math.random()>.35;
+ let trend15=simPrice>vwap+7?"BULLISH":simPrice<vwap-7?"BEARISH":"SIDEWAYS";
+ let candle3=simPrice>vwap+3?"BULLISH":simPrice<vwap-3?"BEARISH":"NEUTRAL";
+ let signal="WAIT",why="3m entry और 15m trend में स्पष्ट alignment नहीं; demo में WAIT।",sigClass="wait";
+ if(trend15==="BULLISH"&&candle3==="BULLISH"&&volStrong&&a.putD>a.callD){signal="CALL BUY";why="Demo rule: 15m bullish + 3m bullish + simulated volume confirmation + Put ΔOI > Call ΔOI.";sigClass="call"}
+ else if(trend15==="BEARISH"&&candle3==="BEARISH"&&volStrong&&a.callD>a.putD){signal="PUT BUY";why="Demo rule: 15m bearish + 3m bearish + simulated volume confirmation + Call ΔOI > Put ΔOI.";sigClass="put"}
+ $("callOI").textContent=nf(a.callOI);$("putOI").textContent=nf(a.putOI);$("callChg").textContent=fmt(a.callD);$("putChg").textContent=fmt(a.putD);
+ $("ratio").textContent=a.callD===0?"N/A":(a.putD/a.callD).toFixed(2)+"×";$("price").textContent=simPrice.toFixed(2);
+ $("signal").textContent=signal;$("signal").className="signalname "+(sigClass==="call"?"green":sigClass==="put"?"red":"yellow");$("signalWhy").textContent=why;
+ $("trendPill").textContent="15m TREND: "+trend15;$("trendPill").className="pill "+(trend15==="BULLISH"?"call":trend15==="BEARISH"?"put":"wait");
+ $("refPrice").textContent=simPrice.toFixed(2);let stopDist=25,targetDist=40;
+ $("stop").textContent=(signal==="CALL BUY"?(simPrice-stopDist).toFixed(2):signal==="PUT BUY"?(simPrice+stopDist).toFixed(2):"—");
+ $("target").textContent=(signal==="CALL BUY"?(simPrice+targetDist).toFixed(2):signal==="PUT BUY"?(simPrice-targetDist).toFixed(2):"—");
+ $("rows").innerHTML=rows.map(r=>`<tr><td>${r.strike}</td><td>${nf(r.callOI)}</td><td>${nf(r.putOI)}</td><td class="${r.callD>=0?'green':'red'}">${fmt(r.callD)}</td><td class="${r.putD>=0?'green':'red'}">${fmt(r.putD)}</td><td>${fmt(r.putD-r.callD)}</td></tr>`).join("");
+ history.push({time:now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),callOI:a.callOI,putOI:a.putOI,callD:a.callD,putD:a.putD,ratio:a.callD===0?null:a.putD/a.callD,diff:a.putD-a.callD});if(history.length>24)history.shift();drawAll();$("lastUpdate").textContent="Demo updated: "+now.toLocaleTimeString("en-IN");
+}
+function setup(id){let c=$(id),w=c.clientWidth||400,h=250,d=window.devicePixelRatio||1;c.width=w*d;c.height=h*d;let x=c.getContext("2d");x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);return{ctx:x,w,h}}
+function short(v){let a=Math.abs(v);return(v<0?"-":"")+(a>=1e6?(a/1e6).toFixed(1)+"m":a>=1e3?(a/1e3).toFixed(0)+"k":Math.round(a))}
+function line(id,series){let{ctx,w,h}=setup(id),l=43,r=10,t=16,b=35,pw=w-l-r,ph=h-t-b,vals=history.flatMap(p=>series.map(s=>p[s.key]).filter(v=>Number.isFinite(v)));let mn=Math.min(0,...vals),mx=Math.max(1,...vals);if(mx===mn)mx=mn+1;let pad=(mx-mn)*.08;mn-=pad;mx+=pad;ctx.font="10px system-ui";ctx.strokeStyle="#293a54";ctx.fillStyle="#9fb0c8";for(let i=0;i<5;i++){let y=t+i*ph/4;ctx.beginPath();ctx.moveTo(l,y);ctx.lineTo(w-r,y);ctx.stroke();ctx.fillText(short(mx-(mx-mn)*i/4),2,y+3)}history.forEach((p,i)=>{if(i%Math.max(1,Math.ceil(history.length/5))===0||i===history.length-1){let x=l+(history.length<2?0:i*pw/(history.length-1));ctx.fillText(p.time.slice(0,5),Math.min(w-35,x-12),h-9)}});series.forEach(s=>{ctx.strokeStyle=s.color;ctx.lineWidth=2;ctx.beginPath();let started=false;history.forEach((p,i)=>{let v=p[s.key];if(!Number.isFinite(v)){started=false;return}let x=l+(history.length<2?0:i*pw/(history.length-1)),y=t+(mx-v)/(mx-mn)*ph;if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y)});ctx.stroke()});let lx=l;series.forEach(s=>{ctx.fillStyle=s.color;ctx.fillRect(lx,h-24,9,3);ctx.fillStyle="#eaf1fb";ctx.fillText(s.label,lx+13,h-20);lx+=Math.min(155,ctx.measureText(s.label).width+36)})}
+function drawAll(){line("chart1",$("view1").value==="total"?[{key:"callOI",label:"Call total OI",color:"#ff6377"},{key:"putOI",label:"Put total OI",color:"#27c281"}]:[{key:"callD",label:"Call ΔOI",color:"#ff6377"},{key:"putD",label:"Put ΔOI",color:"#27c281"}]);line("chart2",$("view2").value==="ratio"?[{key:"ratio",label:"Put ΔOI / Call ΔOI",color:"#72a7ff"}]:[{key:"diff",label:"Put ΔOI − Call ΔOI",color:"#f5c451"}]);line("chart3",$("view3").value==="total"?[{key:"callOI",label:"Call total OI",color:"#ff6377"},{key:"putOI",label:"Put total OI",color:"#27c281"}]:[{key:"callD",label:"Call ΔOI",color:"#ff6377"},{key:"putD",label:"Put ΔOI",color:"#27c281"}])}
+function startTimer(){clearInterval(timer);interval=Number($("refresh").value);seconds=interval;$("countdown").textContent=`Next demo update in ${seconds}s`;timer=setInterval(()=>{if(paused)return;seconds--;if(seconds<=0){tick();seconds=interval}$("countdown").textContent=`Next demo update in ${seconds}s`},1000)}
+$("apply").onclick=()=>{if(makeStrikes()){history=[];tick();startTimer()}};$("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"Resume demo":"Pause demo"};$("refresh").onchange=startTimer;["view1","view2","view3"].forEach(id=>$(id).onchange=drawAll);window.onresize=drawAll;
+makeStrikes();tick();startTimer();
+</script></body></html>
